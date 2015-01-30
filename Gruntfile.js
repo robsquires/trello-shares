@@ -33,7 +33,11 @@ module.exports = function (grunt) {
         tasks: ['bowerInstall']
       },
       js: {
-        files: ['<%= config.app %>/scripts/{,*/}*.js', '!<%= config.app %>/scripts/contentscript.js'],
+        files: [
+          '<%= config.app %>/scripts/{,*/}*.js',
+          '<%= config.app %>/contentscript_config.js',
+          '!<%= config.app %>/scripts/contentscript.js'
+        ],
         tasks: ['requirejs:contentscript'],
         options: {
           livereload: true
