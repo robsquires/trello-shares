@@ -1,35 +1,73 @@
 define([
-    'amplify'
 ], function(
-    pubsub
 ) {
+    'use strict';
 
-    var Ticker = function(symbol, price, quantity) {
-        var bid,
-            offer;
+    var Ticker = function(id, symbol, price, quantity) {
 
-        //read only access to properties;
-        this.symbol = function() {
-            return symbol;
+      this.id = id;
+      this.symbol = symbol;
+
+      this.setPrice(price);
+      this.setQuantity(quantity);
+
+
+      this.bid = null;
+      this.offer = null;
+      this.change = null;
+      this.changePct = null;
+      this.quoteChange = null;
+      this.quoteChangePct = null;
+
+      Object.defineProperty(this, 'owns', {
+        get: function() {
+          return this.quantity !== null;
         }
+      });
 
-        this.owns = function() {
-            return quantity !== undefined;
+      //computed values
+      Object.defineProperty(this, 'marketPrice', {
+        get: function() {
+          return this.owns ? this.bid : this.offer;
         }
+      });
+    };
 
-        this.bid = function() { 
-            return bid;
-        };
+    Ticker.prototype = {
 
-        this.offer = function() {
-            return offer;
-        };
+      updateQuote: function(quote) {
+        this.bid = parseFloat(quote.BidRealtime);
+        this.offer = parseFloat(quote.AskRealtime);
+        this.quoteChange = parseFloat(quote.ChangeRealtime);
+        this.quoteChangePct = quote.ChangeinPercent;
 
-        this.updateQuote = function(Quote) {
-            bid = Quote.BidRealtime;
-            offer = Quote.OfferRealtime;
-        };
-    }
+        refresh.call(this);
+      },
 
+      movement: function() {
+        return this.change < 0 ? -1 : 1;
+      },
+
+      setQuantity: function(quantity) {
+        this.quantity = quantity !== null ? parseInt(quantity, 10) : null;
+        refresh.call(this);
+      },
+
+      setPrice: function(price) {
+        this.price = price !== null ? parseFloat(price) : null;
+        refresh.call(this);
+      }
+    };
+
+
+    var refresh = function() {
+      if (this.owns) {
+        this.change = parseFloat(this.offer - this.price);
+        this.changePct = (this.change / this.price * 100).toFixed(2).toString() + '%';
+      } else {
+        this.change = this.quoteChange;
+        this.changePct = this.quoteChangePct;
+      }
+    };
     return Ticker;
-});
+  });

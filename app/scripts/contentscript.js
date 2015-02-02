@@ -1979,70 +1979,123 @@ define("amplify", (function (global) {
 }.call(this));
 
 define('observer/card',[
-    'underscore',
-    'amplify'
+  'underscore',
+  'amplify'
 ],
 function(
-    _,
-    pubsub
+  _,
+  pubsub
 ) {
-
-    var observer = new MutationObserver(function(mutations) {
-
-        _.each(mutations, function(mutation) {
-
-            _.each(mutation.addedNodes, function(node) {
-                pubsub.publish('card:added', node);
-            });
-        });
+  
+  var titleObserver = new MutationObserver(function(mutations){
+    _.each(mutations, function(mutation) {
+      var card = mutation.target.parentElement;
+      if(card) {
+        pubsub.publish('card:added', card, true);
+      }
+      titleObserver.disconnect();
     });
-    
-    var init = function(lists) {
-
-        _.each(lists, function(list){
-            observer.observe(list, {childList: true});
-        });
-    }
-
-    return {
-        init: init
-    }
+  });
+  
+  var observer = new MutationObserver(function(mutations) {
+    _.each(mutations, function(mutation) {
+      _.each(mutation.addedNodes, function(card) {
+        var title = card.querySelector('.list-card-title');
+        if (title) {
+          card.addEventListener('click', function() {
+            titleObserver.observe(title, {
+              childList: true
+            });
+          });
+          pubsub.publish('card:added', card, false);
+        }
+      });
+    });
+  });
+  
+  var init = function() {
+    var lists = document.querySelectorAll('.list-cards');
+    _.each(lists, function(list){
+      observer.observe(list, {childList: true});
+    });
+  };
+  return {
+    init: init
+  };
 });
 define('model/ticker',[
-    'amplify'
 ], function(
-    pubsub
 ) {
+    
 
-    var Ticker = function(symbol, price, quantity) {
-        var bid,
-            offer;
+    var Ticker = function(id, symbol, price, quantity) {
 
-        //read only access to properties;
-        this.symbol = function() {
-            return symbol;
+      this.id = id;
+      this.symbol = symbol;
+
+      this.setPrice(price);
+      this.setQuantity(quantity);
+
+
+      this.bid = null;
+      this.offer = null;
+      this.change = null;
+      this.changePct = null;
+      this.quoteChange = null;
+      this.quoteChangePct = null;
+
+      Object.defineProperty(this, 'owns', {
+        get: function() {
+          return this.quantity !== null;
         }
+      });
 
-        this.owns = function() {
-            return quantity !== undefined;
+      //computed values
+      Object.defineProperty(this, 'marketPrice', {
+        get: function() {
+          return this.owns ? this.bid : this.offer;
         }
+      });
+    };
 
-        this.bid = function() { 
-            return bid;
-        };
+    Ticker.prototype = {
 
-        this.offer = function() {
-            return offer;
-        };
+      updateQuote: function(quote) {
+        this.bid = parseFloat(quote.BidRealtime);
+        this.offer = parseFloat(quote.AskRealtime);
+        this.quoteChange = parseFloat(quote.ChangeRealtime);
+        this.quoteChangePct = quote.ChangeinPercent;
 
-        this.updateQuote = function(Quote) {
-            bid = Quote.BidRealtime;
-            offer = Quote.OfferRealtime;
-        };
-    }
+        refresh.call(this);
+      },
 
+      movement: function() {
+        return this.change < 0 ? -1 : 1;
+      },
+
+      setQuantity: function(quantity) {
+        this.quantity = quantity !== null ? parseInt(quantity, 10) : null;
+        refresh.call(this);
+      },
+
+      setPrice: function(price) {
+        this.price = price !== null ? parseFloat(price) : null;
+        refresh.call(this);
+      }
+    };
+
+
+    var refresh = function() {
+      if (this.owns) {
+        this.change = parseFloat(this.offer - this.price);
+        this.changePct = (this.change / this.price * 100).toFixed(2).toString() + '%';
+      } else {
+        this.change = this.quoteChange;
+        this.changePct = this.quoteChangePct;
+      }
+    };
     return Ticker;
-});
+  });
 ;(function(){
 
 /**
@@ -3540,133 +3593,217 @@ require.alias("superagent/lib/client.js", "superagent/index.js");if (typeof expo
   this["superagent"] = require("superagent");
 }})();
 define('service/yahoo',[
-    'superagent'
+  'superagent'
 ], function(
-    request
+  request
 ) {
-
-    var get = function(tickers, cb) {
-
-        var str = '';
-        for(var i in tickers) {
-            str = str + '"' + tickers + '",';
-        }
-        str = str.substring(0, str.length - 1);
-
-        request
-            .get('https://query.yahooapis.com/v1/public/yql')
-            .query({
-                q: 'select AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
-                format: 'json',
-                env: 'store://datatables.org/alltableswithkeys'
-            })
-            .set('Accept', 'application/json')
-            .end(function(err, response){
-
-                //munge this into a standardish response
-                //
-                if(err !== null) {
-                    cb(err);
-                } else {
-                    var query = response.body.query,
-                        data = {};
-
-                    if(query.count === 0) {
-                        data.results = [];
-                    } else if( query.count === 1) {
-                        data.results = [query.results.quote];
-                    } else {
-                        data.results = query.results.quote;
-                    }
-
-                    data.timestamp = query.created;
-                    data.count = query.count;
-
-                    cb(null, data);
-                }
-            });
-    }
+  
+  var get = function(tickers, cb) {
+    var str = '';
     
-    return {
-        get: get
+
+    for(var i in tickers) {
+      var ticker = tickers[i];
+      str = str + '"' + ticker + '",';
     }
+
+    str = str.substring(0, str.length - 1);
+
+    request
+      .get('https://query.yahooapis.com/v1/public/yql')
+      .query({
+        q: 'select ChangeRealtime, ChangeinPercent, AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
+        format: 'json',
+        env: 'store://datatables.org/alltableswithkeys'
+      })
+      .set('Accept', 'application/json')
+      .end(function(err, response){
+        //munge this into a standardish response
+        //
+        if(err !== null) {
+          cb(err);
+        } else {
+          var query = response.body.query,
+              data = {
+              timestamp: query.created,
+              count: query.count
+            };
+
+          if (query.count === 0) {
+            data.results = [];
+          } else if (query.count === 1) {
+            if (query.results.quote.AskRealtime === null) {
+              data.count = 0;
+              data.results = [];
+            } else {
+              data.results = [query.results.quote];
+            }
+          } else {
+            data.results = query.results.quote;
+          }
+          cb(null, data);
+        }
+      });
+  };
+  
+  return {
+    get: get
+  };
 });
 require([
-    'amplify',
-    'observer/card',
-    'model/ticker',
-    'service/yahoo'
+  'amplify',
+  'observer/card',
+  'model/ticker',
+  'service/yahoo'
 ], function(
-    pubsub,
-    cardObserver,
-    Ticker,
-    yahoo
+  pubsub,
+  cardObserver,
+  Ticker,
+  yahoo
 ) {
+    
 
-    cardObserver.init(document.querySelectorAll('.list-cards'));
+    cardObserver.init();
 
     var cards = {},
         tickers = {};
-    pubsub.subscribe('card:added', function(card){
+
+    pubsub.subscribe('card:added', function(card, titleUpdate){
+
+      var m = card.querySelector('.list-card-title').textContent.match(/(#[0-9]+) (.*)/);
+      if (m === null) {
+        return;
+      }
+
+      var id = m[1],
+          data = m[2];
+
+      m = data.match(/^([^| ]+)[| ]*([0-9.]*)@?([0-9.]*)/);
+      if(m === null) {
+        pubsub.publish('ticker:error', id);
+        return;
+      }
+
+      var symbol = m[1],
+          price = null,
+          quantity = null;
+
+      if (m[2] !== '' && m[3] !== '') {
+        price = m[3];
+        quantity = m[2];
+      } else if (m[2] !== '' && m[3] === '') {
+        price = m[2];
+      }
+
+      //now parsed all data 
+
+      var ticker = tickers[id];
+      if (ticker && symbol === ticker.symbol) {
+        //ie. not expecting data to have changed
+        if (! titleUpdate) {
+          //if it has
+          if ( (quantity === null && ticker.quantity !== null) ||
+               (price === null && ticker.price !== null) ) {
+            return;
+          }
+        }
         
-        var m = card.querySelector('.list-card-title').textContent.match(/#[0-9]+ (.*)/);
-        if(m === null) {
-            return;
-        }
+        cards[ticker.id] = card;
+        ticker.setQuantity(quantity);
+        ticker.setPrice(price);
 
-        var title = m[1];
-        var m = title.match(/^(([^ |,]+)[^ |,]+)/);
-        if(m === null) {
-            pubsub.publish('ticker:error', ticker);
-            return;
-        }
+        pubsub.publish('ticker:quoted', ticker);
 
-        var symbol = m[1],
-            details = m[3];
+      } else {
 
-        var ticker = new Ticker(symbol);
-        cards[symbol] = card;
+        ticker = new Ticker(id, symbol, price, quantity);
 
+        tickers[ticker.id] = ticker;
+        cards[ticker.id] = card;
         pubsub.publish('ticker:new', ticker);
+      }
     });
 
+    var idx = 0;
     pubsub.subscribe('ticker:quoted', function(ticker){
-        var card = cards[ticker.symbol()];
 
-        var div = document.createElement('div');
-        div.innerText = ticker.bid();
+      var card = cards[ticker.id],
+          badges = card.querySelector('.badges');
+
+      if(!badges) {
+        return;
+      }
+      var badge = badges.querySelector('.badge-ticker');
+      if(!badge) {
+        badge = document.createElement('div');
+        badge.addEventListener('click', function(event) {
+          event.stopPropagation();
+
+          idx++;
+          if(idx > 2) {
+            idx = 0;
+          }
+          
+          pubsub.publish('ui:togglePrice');
+        });
+      }
+
+      var title = card.querySelector('.list-card-title'),
+          span = title.querySelector('span');
+
+      badge.classList.add('badge', 'badge-ticker');
+
+      var price = ticker.owns ? '£' + ((ticker.price * ticker.quantity)/100).toFixed(2) : ticker.marketPrice;
+
+      var data = [price, '£' + ticker.change.toFixed(2), ticker.changePct];
+
+      var updateDiv = function() {
+        badge.innerHTML = '<div>' + data[idx] + '</div>';
+      };
+
+      pubsub.subscribe('ui:togglePrice', updateDiv);
+
+      updateDiv();
+
+      if (ticker.owns) {
+        // title.style.fontWeight = 'bold';
+        title.style.color = 'black';
+        card.style.backgroundColor = ticker.movement() === -1 ? 'rgb(253, 143, 143)' : 'rgb(165, 229, 129)';
+        // title.style.color = ticker.movement() === -1 ? '#FF6666' : '#66AF52';
+      }
+
+      badge.style.backgroundColor = ticker.movement() === -1 ? 'rgb(237, 80, 80)' : '#66AF52';
+      badge.style.color = 'white';
+      badge.style.padding = '1px 4px';
+      badge.style.borderRadius = '2px';
+      // badge.style.borderBottom = '1px solid ' + (ticker.movement() === -1) ? '#FF6666' : 'rgb(75, 132, 60)';
+  
+      title.innerHTML = span.outerHTML + ticker.symbol;
+
+      var allbadges = badges.querySelectorAll('.badge');
+      if (allbadges.length > 0) {
+        badges.insertBefore(badge, allbadges[0]);
+      } else {
+        badges.appendChild(badge);
+      }
         
-        card.appendChild(div);
     });
 
     pubsub.subscribe('ticker:new', function(ticker){
 
-        yahoo.get([ticker.symbol()], function(err, data){
-
-            data.results.forEach(function(quote){
-                ticker.updateQuote(quote);
-                pubsub.publish('ticker:quoted', ticker);
-            });
+      yahoo.get([ticker.symbol], function(err, data){
+        data.results.forEach(function(quote){
+          ticker.updateQuote(quote);
+          pubsub.publish('ticker:quoted', ticker);
         });
+      });
     });
 
-    pubsub.subscribe('ticker:error', function(ticker){
-        console.log('err', ticker);
-        
-        var card = cards[ticker];
-        card.backgroundColor = 'red';
+    pubsub.subscribe('ticker:error', function(id){
+      console.log('err', id);
+      var card = cards[id];
+      card.backgroundColor = 'red';
     });
-
-
-
-
-
-
-    // yahoo.get(['ARM.L', 'IAG.L', 'AZN.L'], function(err, data){
-    //     console.log(err);
-    //     console.log(data.query);
-    // });
-    
-});
+  });
 define("contentscript_src", function(){});
 
