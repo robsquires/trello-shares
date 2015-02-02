@@ -122,6 +122,7 @@ module.exports = function (grunt) {
         'Gruntfile.js',
         '<%= config.app %>/scripts/{,*/}*.js',
         '!<%= config.app %>/scripts/vendor/*',
+        '!<%= config.app %>/scripts/contentscript.js',
         'test/spec/{,*/}*.js'
       ]
     },
@@ -247,11 +248,11 @@ module.exports = function (grunt) {
         options: {
           optimize: 'none',
           generateSourceMaps: false,
-          baseUrl: "<%= config.app %>/scripts",
-          mainConfigFile: "<%= config.app %>/contentscript_config.js",
-          name: "../bower_components/almond/almond",
+          baseUrl: '<%= config.app %>/scripts',
+          mainConfigFile: '<%= config.app %>/contentscript_config.js',
+          name: '../bower_components/almond/almond',
           include: ['contentscript_src'],
-          out: "<%= config.app %>/scripts/contentscript.js"
+          out: '<%= config.app %>/scripts/contentscript.js'
         }
       }
     },
