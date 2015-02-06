@@ -1978,7 +1978,68 @@ define("amplify", (function (global) {
   }
 }.call(this));
 
-define('observer/card',[
+define('observer/board',[
+  'underscore'
+],
+function(
+  _
+) {
+  
+
+  var found = false,
+      selector = '#board',
+      resolve, reject;
+
+  function init(content) {
+    
+    var promise = new Promise(function(Resolve, Reject) {
+      
+      var board = content.querySelector(selector);
+
+      resolve = Resolve;
+      reject = Reject;
+
+      if (board) {
+        //if got the board already resolve this mother!
+        foundBoard(board);
+      
+      } else {
+        //otherwise setup an observer to wait
+        var observer = new MutationObserver(function(mutations) {
+          _.each(mutations, function(mutation) {
+            _.each(mutation.addedNodes, function(node) {
+
+              if (node.matches(selector)) {
+                foundBoard(node);
+              }
+              
+            });
+          });
+        });
+      }
+    });
+
+    setTimeout(checkBoard, 1000);
+
+    return promise;
+  }
+
+  function foundBoard(board) {
+    resolve(board);
+  }
+
+  function checkBoard() {
+    if (!found) {
+      reject('Could not find board');
+    }
+  }
+
+  return {
+    init: init
+  };
+
+});
+define('observer/list',[
   'underscore',
   'amplify'
 ],
@@ -1987,41 +2048,175 @@ function(
   pubsub
 ) {
   
-  var titleObserver = new MutationObserver(function(mutations){
-    _.each(mutations, function(mutation) {
-      var card = mutation.target.parentElement;
-      if(card) {
-        pubsub.publish('card:added', card, true);
-      }
-      titleObserver.disconnect();
-    });
-  });
-  
+
+  var lists = [],
+      initialCount,
+      selector = '.list:not(.add-list)',
+      resolve, reject;
+
   var observer = new MutationObserver(function(mutations) {
     _.each(mutations, function(mutation) {
-      _.each(mutation.addedNodes, function(card) {
-        var title = card.querySelector('.list-card-title');
-        if (title) {
-          card.addEventListener('click', function() {
-            titleObserver.observe(title, {
-              childList: true
-            });
-          });
-          pubsub.publish('card:added', card, false);
+      _.each(mutation.addedNodes, function(node) {
+        if (node.matches(selector)) {
+          lists.push(node);
+
+          tryResolve();
         }
       });
     });
   });
-  
-  var init = function() {
-    var lists = document.querySelectorAll('.list-cards');
-    _.each(lists, function(list){
-      observer.observe(list, {childList: true});
+
+  function init(board) {
+
+    var promise = new Promise(function(Resolve, Reject) {
+
+      resolve = Resolve;
+      reject = Reject;
+
+      lists = Array.prototype.slice.call(board.querySelectorAll(selector));
+      observer.observe(board, { childList: true });
     });
-  };
+
+    return promise;
+  }
+
+  function setNumberLists(count) {
+
+    initialCount = count;
+    tryResolve();
+  }
+
+  function tryResolve() {
+
+    if (lists.length === initialCount) {
+      resolve(lists);
+    }
+  }
+
   return {
-    init: init
+    init: init,
+    setNumberLists: setNumberLists
   };
+
+});
+define('observer/cardTitle',[
+  'underscore',
+  'amplify'
+],
+function(
+  _,
+  pubsub
+) {
+  
+
+  var observer = new MutationObserver(function(mutations){
+
+    _.each(mutations, function(mutation) {
+
+      var card = mutation.target.parentElement;
+      if(card) {
+        pubsub.publish('trello:card:titleChanged', card);
+      }
+
+      //disconnect so don't listen to anymore
+      observer.disconnect();
+    
+    });
+  
+  });
+
+  return observer;
+});
+define('observer/card',[
+  'underscore',
+  'amplify',
+  'observer/cardTitle'
+],
+function(
+  _,
+  pubsub,
+  cardTitleObserver
+) {
+  
+
+  var cards = [],
+      initialCount,
+      selector = '.list-card:not(.placeholder)',
+      resolved = false,
+      resolve,
+      reject;
+
+
+
+  var observer = new MutationObserver(function(mutations) {
+    _.each(mutations, function(mutation) {
+      
+      //go throughall the added nodes
+      _.each(mutation.addedNodes, function(node) {
+
+        if (node.matches(selector)) {
+            if (!resolved) {
+              cards.push(node);
+              tryResolve();
+            } else {
+              pubsub.publish('trello:card:added', node);
+            }
+        }
+
+
+        // var title = card.querySelector('.list-card-title');
+        // if (title) {
+          
+        //   //observe title when the card is opened for editting
+        //   card.addEventListener('click', function() {
+        //     cardTitleObserver.observe(title, { childList: true });
+        //   });
+        // }
+      });
+
+      //go through the remove nodes, potentially to cleanup
+    });
+  });
+
+  function init(lists) {
+
+    promise = new Promise(function(Resolve, Reject) {
+
+      resolve = Resolve;
+      reject = Reject;
+
+      _.each(lists, function(list) {
+          _.each(list.querySelectorAll(selector), function(card) {
+              cards.push(card);
+              tryResolve();
+          });
+
+          observer.observe(list.querySelector('.list-cards'), { childList: true });
+      });
+    });
+
+    return promise;
+  }
+
+  function setNumberCards(count) {
+    initialCount = count;
+    tryResolve();
+  }
+
+  function tryResolve() {
+    if (cards.length === initialCount) {
+      resolved = true;
+      resolve(cards);
+    } else if (cards.length > initialCount) {
+      reject('More lists than expected!!');
+    }
+  }
+
+  return {
+    init: init,
+    setNumberCards: setNumberCards
+  };
+
 });
 define('model/ticker',[
 ], function(
@@ -3598,91 +3793,321 @@ define('service/yahoo',[
   request
 ) {
   
-  var get = function(tickers, cb) {
-    var str = '';
-    
+  var get = function(tickers) {
 
-    for(var i in tickers) {
-      var ticker = tickers[i];
-      str = str + '"' + ticker + '",';
-    }
+    return new Promise(function(resolve, reject) {
+      var str = '';
 
-    str = str.substring(0, str.length - 1);
+      for(var i in tickers) {
+        var ticker = tickers[i];
+        str = str + '"' + ticker + '",';
+      }
 
-    request
-      .get('https://query.yahooapis.com/v1/public/yql')
-      .query({
-        q: 'select ChangeRealtime, ChangeinPercent, AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
-        format: 'json',
-        env: 'store://datatables.org/alltableswithkeys'
-      })
-      .set('Accept', 'application/json')
-      .end(function(err, response){
-        //munge this into a standardish response
-        //
-        if(err !== null) {
-          cb(err);
-        } else {
-          var query = response.body.query,
-              data = {
-              timestamp: query.created,
-              count: query.count
-            };
+      str = str.substring(0, str.length - 1);
 
-          if (query.count === 0) {
-            data.results = [];
-          } else if (query.count === 1) {
-            if (query.results.quote.AskRealtime === null) {
-              data.count = 0;
-              data.results = [];
-            } else {
-              data.results = [query.results.quote];
-            }
+      request
+        .get('https://query.yahooapis.com/v1/public/yql')
+        .query({
+          q: 'select ChangeRealtime, ChangeinPercent, AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
+          format: 'json',
+          env: 'store://datatables.org/alltableswithkeys'
+        })
+        .set('Accept', 'application/json')
+        .end(function(err, response){
+          //munge this into a standardish response
+          //
+          if(err !== null) {
+            reject(err);
           } else {
-            data.results = query.results.quote;
+            var query = response.body.query,
+                data = {
+                timestamp: query.created,
+                count: query.count
+              };
+
+            if (query.count === 0) {
+              data.results = [];
+            } else if (query.count === 1) {
+              if (query.results.quote.AskRealtime === null) {
+                data.count = 0;
+                data.results = [];
+              } else {
+                data.results = [query.results.quote];
+              }
+            } else {
+              data.results = query.results.quote;
+            }
+            resolve(data);
           }
-          cb(null, data);
-        }
-      });
+        });
+    });
   };
   
   return {
     get: get
   };
 });
+define('repository/ticker',[
+  'service/yahoo'
+],
+function(
+  source
+) {
+  
+
+  var allSymbols = [],
+      allResults = {},
+      cache = null,
+      synced = 0;
+
+
+  function add(symbol) {
+    var sym = symbol.toUpperCase();
+
+    //no duplicates
+    if(allResults[sym] === undefined) {
+      allResults[sym] = allSymbols.push(sym) - 1;
+    }
+
+  }
+
+  function sync() {
+    return new Promise(function(resolve, reject){
+
+      if(cache !== null) {
+        resolve(cache);
+      }
+      var symbols = allSymbols.slice(0),
+          results = JSON.parse(JSON.stringify(allResults));
+
+      return source
+        .get(symbols)
+        .then(function(data){
+
+          if(data.count === 0) {
+            reject('Zero results returned');
+          }
+          
+          data.results.forEach(function(result){
+
+            if(result.AskRealtime !== null && result.BidRealtime !== null) {
+              //using delete maintains the keys,
+              //slicing reindexes which breaks after first time this is called
+              delete symbols[results[result.Symbol]];
+              results[result.Symbol] = result;
+            }
+          });
+
+          symbols.forEach(function(symbol){
+            results[symbol] = null;
+          });
+
+          cache = results;
+          resolve(cache);
+        });
+    });
+  }
+
+  return {
+    add: add,
+    sync: sync
+  }
+
+});
+define('service/trello',[
+  'superagent'
+], function(
+  request
+) {
+  
+
+  function cards(boardId) {
+    
+    var promise = new Promise(function(resolve, reject){
+      request
+      .get('https://trello.com/1/boards/' + boardId + '/cards')
+      .query({ fields: 'idShort,name'})
+      .set('Accept', 'application/json')
+      .end(function(err, response){
+        
+        if(err) {
+          reject();
+        } else {
+          resolve(response.body)
+        }
+
+      });
+    });
+
+    return promise;
+  };
+
+  function lists(boardId) {
+    
+    var promise = new Promise(function(resolve, reject){
+      request
+      .get('https://trello.com/1/boards/' + boardId + '/lists')
+      .query({ fields: 'idShort, name'})
+      .set('Accept', 'application/json')
+      .end(function(err, response){
+        
+        if(err) {
+          reject();
+        } else {
+          resolve(response.body)
+        }
+
+      });
+    });
+
+    return promise;
+  };
+  
+  return {
+    cards: cards,
+    lists: lists
+  };
+});
 require([
   'amplify',
+  'observer/board',
+  'observer/list',
   'observer/card',
   'model/ticker',
-  'service/yahoo'
+  'repository/ticker',
+  'service/trello'
 ], function(
   pubsub,
+  boardObserver,
+  listObserver,
   cardObserver,
   Ticker,
-  yahoo
+  tickerRepo,
+  trello
 ) {
     
 
-    cardObserver.init();
+
+
+    var cardsInited = false,
+        dataInited = false,
+        initialData = {};
+
+    var content = document.getElementById('content');
+
+    boardObserver
+      .init(content)
+      .then(listObserver.init)
+      .then(cardObserver.init)
+      .then(function(cards) {
+        cards.forEach(addCard);
+
+        cardsInited = true;
+
+        if (dataInited) {
+          initialQuoting();
+        }
+      });
+    
+  
+    trello
+    .lists('5h0P0qrs')
+    .then(function(data){
+      listObserver.setNumberLists(data.length);
+      }, function(reason) {
+        alert('Could not grab lists');
+    });
+
+    var getbitsFromName = function(name) {
+      m = name.match(/^([^| ]+)[| ]*([0-9.]*)@?([0-9.]*)/);
+      if(m === null) {
+        return;
+      }
+      return m;
+    };
+
+    var getSymbolFromName = function(name) {
+      return getbitsFromName(name)[1].toUpperCase();
+    };
+
+    var getCardId = function(title) {
+      return getbitsFromName(name)[1].toUpperCase();
+    };
+
+    var getCardDetails = function(card) {
+      return card.querySelector('.list-card-title').textContent.match(/#([0-9]+) (.*)/);
+    }
+
+
+    processResults = function(results){
+
+      for (var symbol in symbolIdx) {
+        var cardIds = symbolIdx[symbol];
+        for(var i in cardIds) {
+          var cardId = cardIds[i],
+              quote = results[symbol],
+              ticker = tickers[cardId];
+        
+          if(quote) {
+            ticker.updateQuote(quote);
+            pubsub.publish('ticker:quoted', ticker);
+          }
+        }
+      }
+    };
+
+    var symbolIdx  = {};
+    processCard = function(cardId, name){
+      var symbol = getSymbolFromName(name);
+
+      if (!symbolIdx[symbol]) {
+        symbolIdx[symbol] = [cardId];
+      } else {
+        symbolIdx[symbol].push(cardId);
+      }
+      tickerRepo.add(symbol);
+    }
+
+    trello
+    .cards('5h0P0qrs')
+    .then(function(cards){
+      cardObserver.setNumberCards(cards.length);
+
+      cards.forEach(function(card) {
+        processCard(card.idShort, card.name);
+      });
+
+      tickerRepo
+      .sync()
+      .then(processResults);
+
+    });
+
+    pubsub.subscribe('trello:card:added', function(card) {
+      addCard(card);
+      var details = getCardDetails(card);
+
+      processCard(details[0], details[1]);
+
+      tickerRepo
+        .sync()
+        .then(processResults);
+    });
 
     var cards = {},
         tickers = {};
 
-    pubsub.subscribe('card:added', function(card, titleUpdate){
+    function addCard(card){
 
-      var m = card.querySelector('.list-card-title').textContent.match(/(#[0-9]+) (.*)/);
-      if (m === null) {
+      var m = getCardDetails(card);
+      if(m === null) {
         return;
       }
 
       var id = m[1],
           data = m[2];
 
-      m = data.match(/^([^| ]+)[| ]*([0-9.]*)@?([0-9.]*)/);
-      if(m === null) {
-        pubsub.publish('ticker:error', id);
-        return;
-      }
+      var m = getbitsFromName(data);
 
       var symbol = m[1],
           price = null,
@@ -3700,13 +4125,13 @@ require([
       var ticker = tickers[id];
       if (ticker && symbol === ticker.symbol) {
         //ie. not expecting data to have changed
-        if (! titleUpdate) {
+        // if (! titleUpdate) {
           //if it has
-          if ( (quantity === null && ticker.quantity !== null) ||
-               (price === null && ticker.price !== null) ) {
-            return;
-          }
+        if ( (quantity === null && ticker.quantity !== null) ||
+             (price === null && ticker.price !== null) ) {
+          return;
         }
+        // }
         
         cards[ticker.id] = card;
         ticker.setQuantity(quantity);
@@ -3720,9 +4145,8 @@ require([
 
         tickers[ticker.id] = ticker;
         cards[ticker.id] = card;
-        pubsub.publish('ticker:new', ticker);
       }
-    });
+    };
 
     var idx = 0;
     pubsub.subscribe('ticker:quoted', function(ticker){

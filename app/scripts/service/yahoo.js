@@ -4,52 +4,54 @@ define([
   request
 ) {
   'use strict';
-  var get = function(tickers, cb) {
-    var str = '';
-    
+  var get = function(tickers) {
 
-    for(var i in tickers) {
-      var ticker = tickers[i];
-      str = str + '"' + ticker + '",';
-    }
+    return new Promise(function(resolve, reject) {
+      var str = '';
 
-    str = str.substring(0, str.length - 1);
+      for(var i in tickers) {
+        var ticker = tickers[i];
+        str = str + '"' + ticker + '",';
+      }
 
-    request
-      .get('https://query.yahooapis.com/v1/public/yql')
-      .query({
-        q: 'select ChangeRealtime, ChangeinPercent, AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
-        format: 'json',
-        env: 'store://datatables.org/alltableswithkeys'
-      })
-      .set('Accept', 'application/json')
-      .end(function(err, response){
-        //munge this into a standardish response
-        //
-        if(err !== null) {
-          cb(err);
-        } else {
-          var query = response.body.query,
-              data = {
-              timestamp: query.created,
-              count: query.count
-            };
+      str = str.substring(0, str.length - 1);
 
-          if (query.count === 0) {
-            data.results = [];
-          } else if (query.count === 1) {
-            if (query.results.quote.AskRealtime === null) {
-              data.count = 0;
-              data.results = [];
-            } else {
-              data.results = [query.results.quote];
-            }
+      request
+        .get('https://query.yahooapis.com/v1/public/yql')
+        .query({
+          q: 'select ChangeRealtime, ChangeinPercent, AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
+          format: 'json',
+          env: 'store://datatables.org/alltableswithkeys'
+        })
+        .set('Accept', 'application/json')
+        .end(function(err, response){
+          //munge this into a standardish response
+          //
+          if(err !== null) {
+            reject(err);
           } else {
-            data.results = query.results.quote;
+            var query = response.body.query,
+                data = {
+                timestamp: query.created,
+                count: query.count
+              };
+
+            if (query.count === 0) {
+              data.results = [];
+            } else if (query.count === 1) {
+              if (query.results.quote.AskRealtime === null) {
+                data.count = 0;
+                data.results = [];
+              } else {
+                data.results = [query.results.quote];
+              }
+            } else {
+              data.results = query.results.quote;
+            }
+            resolve(data);
           }
-          cb(null, data);
-        }
-      });
+        });
+    });
   };
   
   return {

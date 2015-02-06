@@ -1,36 +1,143 @@
 require([
   'amplify',
+  'observer/board',
+  'observer/list',
   'observer/card',
   'model/ticker',
-  'service/yahoo'
+  'repository/ticker',
+  'service/trello'
 ], function(
   pubsub,
+  boardObserver,
+  listObserver,
   cardObserver,
   Ticker,
-  yahoo
+  tickerRepo,
+  trello
 ) {
     'use strict';
 
-    cardObserver.init();
+
+
+    var cardsInited = false,
+        dataInited = false,
+        initialData = {};
+
+    var content = document.getElementById('content');
+
+    boardObserver
+      .init(content)
+      .then(listObserver.init)
+      .then(cardObserver.init)
+      .then(function(cards) {
+        cards.forEach(addCard);
+
+        cardsInited = true;
+
+        if (dataInited) {
+          initialQuoting();
+        }
+      });
+    
+  
+    trello
+    .lists('5h0P0qrs')
+    .then(function(data){
+      listObserver.setNumberLists(data.length);
+      }, function(reason) {
+        alert('Could not grab lists');
+    });
+
+    var getbitsFromName = function(name) {
+      m = name.match(/^([^| ]+)[| ]*([0-9.]*)@?([0-9.]*)/);
+      if(m === null) {
+        return;
+      }
+      return m;
+    };
+
+    var getSymbolFromName = function(name) {
+      return getbitsFromName(name)[1].toUpperCase();
+    };
+
+    var getCardId = function(title) {
+      return getbitsFromName(name)[1].toUpperCase();
+    };
+
+    var getCardDetails = function(card) {
+      return card.querySelector('.list-card-title').textContent.match(/#([0-9]+) (.*)/);
+    }
+
+
+    processResults = function(results){
+
+      for (var symbol in symbolIdx) {
+        var cardIds = symbolIdx[symbol];
+        for(var i in cardIds) {
+          var cardId = cardIds[i],
+              quote = results[symbol],
+              ticker = tickers[cardId];
+        
+          if(quote) {
+            ticker.updateQuote(quote);
+            pubsub.publish('ticker:quoted', ticker);
+          }
+        }
+      }
+    };
+
+    var symbolIdx  = {};
+    processCard = function(cardId, name){
+      var symbol = getSymbolFromName(name);
+
+      if (!symbolIdx[symbol]) {
+        symbolIdx[symbol] = [cardId];
+      } else {
+        symbolIdx[symbol].push(cardId);
+      }
+      tickerRepo.add(symbol);
+    }
+
+    trello
+    .cards('5h0P0qrs')
+    .then(function(cards){
+      cardObserver.setNumberCards(cards.length);
+
+      cards.forEach(function(card) {
+        processCard(card.idShort, card.name);
+      });
+
+      tickerRepo
+      .sync()
+      .then(processResults);
+
+    });
+
+    pubsub.subscribe('trello:card:added', function(card) {
+      addCard(card);
+      var details = getCardDetails(card);
+
+      processCard(details[0], details[1]);
+
+      tickerRepo
+        .sync()
+        .then(processResults);
+    });
 
     var cards = {},
         tickers = {};
 
-    pubsub.subscribe('card:added', function(card, titleUpdate){
+    function addCard(card){
 
-      var m = card.querySelector('.list-card-title').textContent.match(/(#[0-9]+) (.*)/);
-      if (m === null) {
+      var m = getCardDetails(card);
+      if(m === null) {
         return;
       }
 
       var id = m[1],
           data = m[2];
 
-      m = data.match(/^([^| ]+)[| ]*([0-9.]*)@?([0-9.]*)/);
-      if(m === null) {
-        pubsub.publish('ticker:error', id);
-        return;
-      }
+      var m = getbitsFromName(data);
 
       var symbol = m[1],
           price = null,
@@ -48,13 +155,13 @@ require([
       var ticker = tickers[id];
       if (ticker && symbol === ticker.symbol) {
         //ie. not expecting data to have changed
-        if (! titleUpdate) {
+        // if (! titleUpdate) {
           //if it has
-          if ( (quantity === null && ticker.quantity !== null) ||
-               (price === null && ticker.price !== null) ) {
-            return;
-          }
+        if ( (quantity === null && ticker.quantity !== null) ||
+             (price === null && ticker.price !== null) ) {
+          return;
         }
+        // }
         
         cards[ticker.id] = card;
         ticker.setQuantity(quantity);
@@ -68,9 +175,8 @@ require([
 
         tickers[ticker.id] = ticker;
         cards[ticker.id] = card;
-        pubsub.publish('ticker:new', ticker);
       }
-    });
+    };
 
     var idx = 0;
     pubsub.subscribe('ticker:quoted', function(ticker){
