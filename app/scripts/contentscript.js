@@ -3997,6 +3997,92 @@ function(
   }
 
 });
+define('view/card',[
+],
+function(
+) {
+
+  var badgeUpdate = { bid:1, offer:1, quoteChange:1, quoteChangePct:1 };
+
+  var CardView = function(card, ticker) {
+    this.setTicker(ticker);
+
+    this.card = card;
+    this.badges = card.querySelector('.badges');
+  };
+
+  function updateBadge() {
+    
+    var badge = this.badges.querySelector('.badge-ticker');
+
+    var price = this.ticker.owns ? '£' + ((this.ticker.price * this.ticker.quantity)/100).toFixed(2) : this.ticker.marketPrice;
+    var data = [price, '£' + this.ticker.change.toFixed(2), this.ticker.changePct];
+
+    if (!badge) {
+      
+      //create badge
+      badge = document.createElement('div');
+      badge.addEventListener('click', function(event) {
+        event.stopPropagation();
+        pubsub.publish('ui:togglePrice');
+      });
+        
+      //set generic attributes
+      badge.classList.add('badge', 'badge-ticker');
+      badge.style.color = 'white';
+      badge.style.padding = '1px 4px';
+      badge.style.borderRadius = '2px';
+
+      //set data-dependant attributes
+      badge.innerHTML = '<div>' + data[0] + '</div>';
+      badge.style.backgroundColor = this.ticker.movement() === -1 ? 'rgb(237, 80, 80)' : '#66AF52';
+
+      //set to view
+      var allbadges = this.badges.querySelectorAll('.badge');
+      if (allbadges.length > 0) {
+        this.badges.insertBefore(badge, allbadges[0]);
+      } else {
+        this.badges.appendChild(badge);
+      }
+
+    } else {
+      badge.innerHTML = '<div>' + data[0] + '</div>';
+      badge.style.backgroundColor = this.ticker.movement() === -1 ? 'rgb(237, 80, 80)' : '#66AF52';
+    }
+  }
+
+
+  CardView.prototype = {
+    setCard: function(card) {
+
+      this.card = card;
+      this.badges = card.querySelector('.badges');
+      updateBadge.call(this);
+    },
+
+    setTicker: function(ticker) {
+      var me = this;
+      this.ticker = ticker;
+
+      Object.observe(
+        this.ticker,
+        function(changes){
+          
+          changes.forEach(function(change){
+            
+            if (badgeUpdate[change.name]) {
+              updateBadge.call(me);
+            }
+          });
+
+        }
+      );
+    }
+  }
+
+  return CardView;
+
+});
 define('service/trello',[
   'superagent'
 ], function(
@@ -4056,10 +4142,16 @@ require([
   'observer/board',
   'observer/list',
   'observer/card',
+
   'parser/title',
   'parser/name',
+
   'model/ticker',
+
   'repository/ticker',
+  
+  'view/card',
+
   'service/trello'
 ], function(
   pubsub,
@@ -4070,6 +4162,7 @@ require([
   nameParser,
   Ticker,
   tickerRepo,
+  CardView,
   trello
 ) {
     
@@ -4161,7 +4254,8 @@ require([
     });
 
     var cards = {},
-        tickers = {};
+        tickers = {},
+        cardViews = {};
 
     function addCard(card){
 
@@ -4174,74 +4268,64 @@ require([
           quantity = nameParser.quantity(name);
 
 
-      //now parsed all data 
-
       var ticker = tickers[id];
-      if (ticker && symbol === ticker.symbol) {
-        //ie. not expecting data to have changed
-        // if (! titleUpdate) {
-          //if it has
-        if ( (quantity === null && ticker.quantity !== null) ||
-             (price === null && ticker.price !== null) ) {
-          return;
-        }
-        // }
-        
-        cards[ticker.id] = card;
+      if (ticker /*&& symbol === ticker.symbol*/) {
+
         ticker.setQuantity(quantity);
         ticker.setPrice(price);
 
+        cards[ticker.id] = card;
         pubsub.publish('ticker:quoted', ticker);
-
       } else {
-
         ticker = new Ticker(id, symbol, price, quantity);
-
         tickers[ticker.id] = ticker;
         cards[ticker.id] = card;
       }
+
+      //now parsed all data 
+      var view = cardViews[id];
+      if (view) {
+        view.setCard(card);
+      } else {
+        view = new CardView(card, ticker);
+        cardViews[id] = view;
+      }
+
+      // var ticker = tickers[id];
+      // if (ticker && symbol === ticker.symbol) {
+      //   //ie. not expecting data to have changed
+      //   // if (! titleUpdate) {
+      //     //if it has
+      //   if ( (quantity === null && ticker.quantity !== null) ||
+      //        (price === null && ticker.price !== null) ) {
+      //     return;
+      //   }
+      //   // }
+        
+      //   cards[ticker.id] = card;
+      //   ticker.setQuantity(quantity);
+      //   ticker.setPrice(price);
+
+      //   pubsub.publish('ticker:quoted', ticker);
+
+      // } else {
+
+      //   ticker = new Ticker(id, symbol, price, quantity);
+
+      //   tickers[ticker.id] = ticker;
+      //   cards[ticker.id] = card;
+      // }
     };
 
     var idx = 0;
     pubsub.subscribe('ticker:quoted', function(ticker){
 
-      var card = cards[ticker.id],
-          badges = card.querySelector('.badges');
-
-      if(!badges) {
-        return;
-      }
-      var badge = badges.querySelector('.badge-ticker');
-      if(!badge) {
-        badge = document.createElement('div');
-        badge.addEventListener('click', function(event) {
-          event.stopPropagation();
-
-          idx++;
-          if(idx > 2) {
-            idx = 0;
-          }
-          
-          pubsub.publish('ui:togglePrice');
-        });
-      }
-
+      var card = cards[ticker.id];
       var title = card.querySelector('.list-card-title'),
           span = title.querySelector('span');
 
-      badge.classList.add('badge', 'badge-ticker');
+      // pubsub.subscribe('ui:togglePrice', updateDiv);
 
-      var price = ticker.owns ? '£' + ((ticker.price * ticker.quantity)/100).toFixed(2) : ticker.marketPrice;
-
-      var data = [price, '£' + ticker.change.toFixed(2), ticker.changePct];
-
-      var updateDiv = function() {
-        badge.innerHTML = '<div>' + data[idx] + '</div>';
-      };
-
-      pubsub.subscribe('ui:togglePrice', updateDiv);
-
-      updateDiv();
 
       if (ticker.owns) {
         // title.style.fontWeight = 'bold';
@@ -4250,20 +4334,7 @@ require([
         // title.style.color = ticker.movement() === -1 ? '#FF6666' : '#66AF52';
       }
 
-      badge.style.backgroundColor = ticker.movement() === -1 ? 'rgb(237, 80, 80)' : '#66AF52';
-      badge.style.color = 'white';
-      badge.style.padding = '1px 4px';
-      badge.style.borderRadius = '2px';
-      // badge.style.borderBottom = '1px solid ' + (ticker.movement() === -1) ? '#FF6666' : 'rgb(75, 132, 60)';
-  
       title.innerHTML = span.outerHTML + ticker.symbol;
-
-      var allbadges = badges.querySelectorAll('.badge');
-      if (allbadges.length > 0) {
-        badges.insertBefore(badge, allbadges[0]);
-      } else {
-        badges.appendChild(badge);
-      }
         
     });
   });
