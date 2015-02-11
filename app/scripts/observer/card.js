@@ -25,7 +25,7 @@ function(
       //go throughall the added nodes
       _.each(mutation.addedNodes, function(node) {
 
-        if (node.matches(selector)) {
+        if (node.matches(selector) && node.parentNode !== null) {
             if (!resolved) {
               cards.push(node);
               tryResolve();

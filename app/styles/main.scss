@@ -1,4 +1,21 @@
-$padding: 20px;
-body {
-  padding: $padding;
+.badge-price {
+    color: white !important;
+    padding: 1px 4px !important;
+    border-radius: 2px !important;
+}
+
+.badge-price--up {
+    background-color: #66AF52;
+}
+
+.badge-price--down {
+    background-color: rgb(237, 80, 80);
+}
+
+.list-card--up {
+    background-color: rgb(165, 229, 129) !important;
+}
+
+.list-card--down {
+    background-color: rgb(253, 143, 143) !important;
 }

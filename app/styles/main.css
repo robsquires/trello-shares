@@ -1,4 +1,26 @@
-@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/rob\/Projects\/TrelloShares\/app\/styles\/main\.scss}line{font-family:\000032}}
-body {
-  padding: 20px;
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/rob\/Projects\/TrelloShares\/app\/styles\/main\.scss}line{font-family:\000031}}
+.badge-price {
+  color: white !important;
+  padding: 1px 4px !important;
+  border-radius: 2px !important;
+}
+
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/rob\/Projects\/TrelloShares\/app\/styles\/main\.scss}line{font-family:\000037}}
+.badge-price--up {
+  background-color: #66AF52;
+}
+
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/rob\/Projects\/TrelloShares\/app\/styles\/main\.scss}line{font-family:\0000311}}
+.badge-price--down {
+  background-color: #ed5050;
+}
+
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/rob\/Projects\/TrelloShares\/app\/styles\/main\.scss}line{font-family:\0000315}}
+.list-card--up {
+  background-color: #a5e581 !important;
+}
+
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/rob\/Projects\/TrelloShares\/app\/styles\/main\.scss}line{font-family:\0000319}}
+.list-card--down {
+  background-color: #fd8f8f !important;
 }

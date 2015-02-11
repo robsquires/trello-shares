@@ -151,51 +151,8 @@ require([
         view = new CardView(card, ticker);
         cardViews[id] = view;
       }
-
-      // var ticker = tickers[id];
-      // if (ticker && symbol === ticker.symbol) {
-      //   //ie. not expecting data to have changed
-      //   // if (! titleUpdate) {
-      //     //if it has
-      //   if ( (quantity === null && ticker.quantity !== null) ||
-      //        (price === null && ticker.price !== null) ) {
-      //     return;
-      //   }
-      //   // }
-        
-      //   cards[ticker.id] = card;
-      //   ticker.setQuantity(quantity);
-      //   ticker.setPrice(price);
-
-      //   pubsub.publish('ticker:quoted', ticker);
-
-      // } else {
-
-      //   ticker = new Ticker(id, symbol, price, quantity);
-
-      //   tickers[ticker.id] = ticker;
-      //   cards[ticker.id] = card;
-      // }
     };
 
-    var idx = 0;
-    pubsub.subscribe('ticker:quoted', function(ticker){
-
-      var card = cards[ticker.id];
-      var title = card.querySelector('.list-card-title'),
-          span = title.querySelector('span');
-
-      // pubsub.subscribe('ui:togglePrice', updateDiv);
-
-
-      if (ticker.owns) {
-        // title.style.fontWeight = 'bold';
-        title.style.color = 'black';
-        card.style.backgroundColor = ticker.movement() === -1 ? 'rgb(253, 143, 143)' : 'rgb(165, 229, 129)';
-        // title.style.color = ticker.movement() === -1 ? '#FF6666' : '#66AF52';
-      }
-
-      title.innerHTML = span.outerHTML + ticker.symbol;
-        
-    });
   });
+
+

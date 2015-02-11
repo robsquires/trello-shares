@@ -2154,7 +2154,7 @@ function(
       //go throughall the added nodes
       _.each(mutation.addedNodes, function(node) {
 
-        if (node.matches(selector)) {
+        if (node.matches(selector) && node.parentNode !== null) {
             if (!resolved) {
               cards.push(node);
               tryResolve();
@@ -3997,67 +3997,128 @@ function(
   }
 
 });
-define('view/card',[
+define('view/badge',[
 ],
 function(
+) {
+
+  var BadgeView = function(card, ticker) {
+    this.setTicker(ticker);
+    this.setCard(card);
+
+    this.createBadge();
+  };
+
+  BadgeView.prototype = {
+
+    createBadge: function() {
+      this.badge = document.createElement('div');
+      this.badge.addEventListener('click', function(event) {
+          event.stopPropagation();
+          pubsub.publish('ui:togglePrice');
+        });
+      this.badge.classList.add('badge', 'badge-price');
+    },
+
+    updateMovement: function() {
+
+      if(this.ticker.movement() === -1) {
+        this.badge.classList.add('badge-price--down');
+      } else {
+        this.badge.classList.add('badge-price--up');
+      }
+
+    },
+
+    addBadgeToCard: function() {
+      //set to view
+      var allbadges = this.badges.querySelectorAll('.badge');
+      if (allbadges.length > 0) {
+        this.badges.insertBefore(this.badge, allbadges[0]);
+      } else {
+        this.badges.appendChild(this.badge);
+      }
+    },
+
+    update: function() {
+
+      var price = this.ticker.owns ? '£' + ((this.ticker.price * this.ticker.quantity)/100).toFixed(2) : this.ticker.marketPrice;
+      var data = [price, '£' + this.ticker.change.toFixed(2), this.ticker.changePct];
+
+      this.updateMovement();
+      this.badge.innerHTML = '<div>' + data[0] + '</div>';
+
+      var badge = this.badges.querySelector('.badge-price');
+      if (!badge) {
+        this.addBadgeToCard();
+      }
+    },
+
+    setCard: function(card) {
+      this.card = card;
+      this.badges = card.querySelector('.badges');
+    },
+
+    setTicker: function(ticker) {
+      this.ticker = ticker;
+    }
+  }
+
+  return BadgeView;
+
+});
+define('view/card',[
+  'view/badge'
+],
+function(
+  BadgeView
 ) {
 
   var badgeUpdate = { bid:1, offer:1, quoteChange:1, quoteChangePct:1 };
 
   var CardView = function(card, ticker) {
     this.setTicker(ticker);
-
     this.card = card;
-    this.badges = card.querySelector('.badges');
+    this.title = this.card.querySelector('.list-card-title');
+
+    this.badge = new BadgeView(this.card, this.ticker);
   };
-
-  function updateBadge() {
-    
-    var badge = this.badges.querySelector('.badge-ticker');
-
-    var price = this.ticker.owns ? '£' + ((this.ticker.price * this.ticker.quantity)/100).toFixed(2) : this.ticker.marketPrice;
-    var data = [price, '£' + this.ticker.change.toFixed(2), this.ticker.changePct];
-
-    if (!badge) {
-      
-      //create badge
-      badge = document.createElement('div');
-      badge.addEventListener('click', function(event) {
-        event.stopPropagation();
-        pubsub.publish('ui:togglePrice');
-      });
-        
-      //set generic attributes
-      badge.classList.add('badge', 'badge-ticker');
-      badge.style.color = 'white';
-      badge.style.padding = '1px 4px';
-      badge.style.borderRadius = '2px';
-
-      //set data-dependant attributes
-      badge.innerHTML = '<div>' + data[0] + '</div>';
-      badge.style.backgroundColor = this.ticker.movement() === -1 ? 'rgb(237, 80, 80)' : '#66AF52';
-
-      //set to view
-      var allbadges = this.badges.querySelectorAll('.badge');
-      if (allbadges.length > 0) {
-        this.badges.insertBefore(badge, allbadges[0]);
-      } else {
-        this.badges.appendChild(badge);
-      }
-
-    } else {
-      badge.innerHTML = '<div>' + data[0] + '</div>';
-      badge.style.backgroundColor = this.ticker.movement() === -1 ? 'rgb(237, 80, 80)' : '#66AF52';
-    }
-  }
 
 
   CardView.prototype = {
-    setCard: function(card) {
 
+    update: function() {
+      this.updateMovement();
+      this.updateTitle();
+      
+      this.badge.update();
+    },
+    
+    updateMovement: function() {
+
+      if (!this.ticker.owns) {
+        return;
+      }
+
+      if (this.ticker.movement() === -1) {
+        this.card.classList.add('list-card--down');
+      } else {
+        this.card.classList.add('list-card--up');
+      }
+    },
+
+    updateTitle: function() {
+      var span = this.title.querySelector('span');
+
+      this.title.innerHTML = span.outerHTML + this.ticker.symbol;
+    },
+
+    setCard: function(card) {
       this.card = card;
-      this.badges = card.querySelector('.badges');
-      updateBadge.call(this);
+      this.title = this.card.querySelector('.list-card-title');
+      this.badge.setCard(card);
+
+      this.update();
     },
 
     setTicker: function(ticker) {
@@ -4071,7 +4132,7 @@ function(
           changes.forEach(function(change){
             
             if (badgeUpdate[change.name]) {
-              updateBadge.call(me);
+              me.update();
             }
           });
 
@@ -4290,53 +4351,11 @@ require([
         view = new CardView(card, ticker);
         cardViews[id] = view;
       }
-
-      // var ticker = tickers[id];
-      // if (ticker && symbol === ticker.symbol) {
-      //   //ie. not expecting data to have changed
-      //   // if (! titleUpdate) {
-      //     //if it has
-      //   if ( (quantity === null && ticker.quantity !== null) ||
-      //        (price === null && ticker.price !== null) ) {
-      //     return;
-      //   }
-      //   // }
-        
-      //   cards[ticker.id] = card;
-      //   ticker.setQuantity(quantity);
-      //   ticker.setPrice(price);
-
-      //   pubsub.publish('ticker:quoted', ticker);
-
-      // } else {
-
-      //   ticker = new Ticker(id, symbol, price, quantity);
-
-      //   tickers[ticker.id] = ticker;
-      //   cards[ticker.id] = card;
-      // }
     };
 
-    var idx = 0;
-    pubsub.subscribe('ticker:quoted', function(ticker){
-
-      var card = cards[ticker.id];
-      var title = card.querySelector('.list-card-title'),
-          span = title.querySelector('span');
-
-      // pubsub.subscribe('ui:togglePrice', updateDiv);
-
-
-      if (ticker.owns) {
-        // title.style.fontWeight = 'bold';
-        title.style.color = 'black';
-        card.style.backgroundColor = ticker.movement() === -1 ? 'rgb(253, 143, 143)' : 'rgb(165, 229, 129)';
-        // title.style.color = ticker.movement() === -1 ? '#FF6666' : '#66AF52';
-      }
-
-      title.innerHTML = span.outerHTML + ticker.symbol;
-        
-    });
   });
+
+
+
 define("contentscript_src", function(){});
 
