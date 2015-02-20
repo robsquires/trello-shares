@@ -1,3 +1,11 @@
+$up_light: rgb(165, 229, 129);
+$up_dark: #66AF52;
+
+$down_light: rgb(253, 143, 143);
+$down_dark: rgb(237, 80, 80);
+
+$label_height: 4.5px;
+
 .badge-price {
     color: white !important;
     padding: 1px 4px !important;
@@ -5,17 +13,33 @@
 }
 
 .badge-price--up {
-    background-color: #66AF52;
+    background-color: $up_dark;
 }
 
 .badge-price--down {
-    background-color: rgb(237, 80, 80);
+    background-color: $down_dark;
 }
 
 .list-card--up {
-    background-color: rgb(165, 229, 129) !important;
+    background-color: $up_light !important;
+}
+    
+.list-card--up.moved-up {
+    background: linear-gradient(to bottom, $up_dark $label_height, $up_light $label_height) !important;
+}
+
+.list-card--up.moved-down {
+    background: linear-gradient(to top, $up_dark $label_height, $up_light $label_height) !important;
 }
 
 .list-card--down {
-    background-color: rgb(253, 143, 143) !important;
+    background-color: $down_light !important;
+}
+
+.list-card--down.moved-up {
+    background: linear-gradient(to bottom, $down_dark $label_height, $down_light $label_height) !important;
+}
+
+.list-card--down.moved-down {
+    background: linear-gradient(to top, $down_dark $label_height, $down_light $label_height) !important;
 }
