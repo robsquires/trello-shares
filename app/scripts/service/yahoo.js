@@ -16,8 +16,9 @@ define([
 
       str = str.substring(0, str.length - 1);
 
+      //https://query.yahooapis.com/v1/public/yql
       request
-        .get('https://query.yahooapis.com/v1/public/yql')
+        .get('https://localhost:3000/v1/public/yql')
         .query({
           q: 'select ChangeRealtime, ChangeinPercent, AskRealtime, BidRealtime, Symbol from yahoo.finance.quotes where symbol IN (' + str + ')',
           format: 'json',
