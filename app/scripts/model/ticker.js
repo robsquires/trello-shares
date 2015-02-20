@@ -11,6 +11,8 @@ define([
       this.setPrice(price);
       this.setQuantity(quantity);
 
+      this.hasQuote = false;
+
 
       this.bid = null;
       this.offer = null;
@@ -31,11 +33,20 @@ define([
           return this.owns ? this.bid : this.offer;
         }
       });
+
+      Object.defineProperty(this, 'investment', {
+        get: function() {
+          return this.quantity * this.offer;
+        }
+      });
     };
 
     Ticker.prototype = {
 
       updateQuote: function(quote) {
+
+        this.hasQuote = true;
+
         this.bid = parseFloat(quote.BidRealtime);
         this.offer = parseFloat(quote.AskRealtime);
         this.quoteChange = parseFloat(quote.ChangeRealtime);
