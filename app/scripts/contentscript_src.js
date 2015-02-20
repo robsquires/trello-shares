@@ -12,11 +12,12 @@ require([
   'repository/ticker',
   
   'view/card',
+  'view/refreshButton',
 
   'service/trello'
 ], function(
   pubsub,
-  boardObserver,
+  BoardObserver,
   listObserver,
   cardObserver,
   titleParser,
@@ -24,31 +25,29 @@ require([
   Ticker,
   tickerRepo,
   CardView,
+  RefreshButtonView,
+
   trello
 ) {
     'use strict';
 
-
-
-    var cardsInited = false,
-        dataInited = false,
-        initialData = {};
-
     var content = document.getElementById('content');
 
+    var boardHeaderObserver = new BoardObserver();
+    boardHeaderObserver
+    .init(content, '.board-header')
+    .then(function(header){
+      new RefreshButtonView(header);
+    });
+
+    var boardObserver = new BoardObserver();
     boardObserver
-      .init(content)
-      .then(listObserver.init)
-      .then(cardObserver.init)
-      .then(function(cards) {
-        cards.forEach(addCard);
-
-        cardsInited = true;
-
-        if (dataInited) {
-          initialQuoting();
-        }
-      });
+    .init(content, '#board')
+    .then(listObserver.init)
+    .then(cardObserver.init)
+    .then(function(cards) {
+      cards.forEach(addCard);
+    });
     
   
     trello
@@ -59,6 +58,8 @@ require([
         alert('Could not grab lists');
     });
 
+    var initialQuotes = {};
+
     processResults = function(results){
 
       for (var symbol in symbolIdx) {
@@ -67,14 +68,27 @@ require([
           var cardId = cardIds[i],
               quote = results[symbol],
               ticker = tickers[cardId];
-        
-          if(quote) {
-            ticker.updateQuote(quote);
-            pubsub.publish('ticker:quoted', ticker);
+
+          if (quote) {
+            //haven't built the tickers yet
+            if (!ticker) {
+              initialQuotes[symbol] = quote;
+            } else {
+              ticker.updateQuote(quote);
+              pubsub.publish('ticker:quoted', ticker);
+            }
           }
         }
       }
     };
+
+    pubsub.subscribe('updateData', function(){
+      
+      tickerRepo
+      .sync()
+      .then(processResults);
+
+    });
 
     var symbolIdx  = {};
     processCard = function(cardId, name){
@@ -141,6 +155,11 @@ require([
         ticker = new Ticker(id, symbol, price, quantity);
         tickers[ticker.id] = ticker;
         cards[ticker.id] = card;
+      }
+
+      if (initialQuotes[symbol]) {
+        ticker.updateQuote(initialQuotes[symbol]);
+        delete initialQuotes[symbol];
       }
 
       //now parsed all data 
