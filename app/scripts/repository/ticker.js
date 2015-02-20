@@ -8,7 +8,6 @@ function(
 
   var allSymbols = [],
       allResults = {},
-      cache = null,
       synced = 0;
 
 
@@ -25,9 +24,6 @@ function(
   function sync() {
     return new Promise(function(resolve, reject){
 
-      if(cache !== null) {
-        resolve(cache);
-      }
       var symbols = allSymbols.slice(0),
           results = JSON.parse(JSON.stringify(allResults));
 
@@ -53,8 +49,7 @@ function(
             results[symbol] = null;
           });
 
-          cache = results;
-          resolve(cache);
+          resolve(results);
         });
     });
   }
