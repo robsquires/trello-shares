@@ -5,7 +5,7 @@ function(
   BadgeView
 ) {
 
-  var badgeUpdate = { bid:1, offer:1, quoteChange:1, quoteChangePct:1 };
+  var badgeUpdate = { bid:1, offer:1 };
 
   var CardView = function(card, ticker) {
     this.setTicker(ticker);
@@ -13,29 +13,47 @@ function(
     this.title = this.card.querySelector('.list-card-title');
 
     this.badge = new BadgeView(this.card, this.ticker);
+
+    this.update();
   };
 
 
   CardView.prototype = {
 
-    update: function() {
-      this.updateMovement();
+    update: function(goneUp) {
+
+      this.updateMovement(goneUp);
       this.updateTitle();
       
       this.badge.update();
     },
     
-    updateMovement: function() {
+    updateMovement: function(goneUp) {
 
       if (!this.ticker.owns) {
         return;
       }
 
+      var classList = this.card.classList;
+
       if (this.ticker.movement() === -1) {
-        this.card.classList.add('list-card--down');
+        classList.add('list-card--down');
+        classList.remove('list-card--up');
       } else {
-        this.card.classList.add('list-card--up');
+        classList.add('list-card--up');
+        classList.remove('list-card--down');
       }
+      if (goneUp === true) {
+        classList.add('moved-up');
+        classList.remove('moved-down');
+      } else if (goneUp === false ) {
+        classList.add('moved-down');
+        classList.remove('moved-up');
+      }
+
+      setTimeout(function(){
+        classList.remove('moved-up', 'moved-down');
+      }, 5000);
     },
 
     updateTitle: function() {
@@ -62,8 +80,10 @@ function(
           
           changes.forEach(function(change){
             
+            
             if (badgeUpdate[change.name]) {
-              me.update();
+              var goneUp = change.oldValue !== null ? change.oldValue > change.object[change.name] : null;
+              me.update(goneUp);
             }
           });
 

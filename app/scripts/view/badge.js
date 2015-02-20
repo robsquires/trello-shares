@@ -43,7 +43,11 @@ function(
 
     update: function() {
 
-      var price = this.ticker.owns ? '£' + ((this.ticker.price * this.ticker.quantity)/100).toFixed(2) : this.ticker.marketPrice;
+      if (!this.ticker.hasQuote) {
+        return;
+      }
+
+      var price = this.ticker.owns ? '£' + (this.ticker.investment/100).toFixed(2) : this.ticker.marketPrice;
       var data = [price, '£' + this.ticker.change.toFixed(2), this.ticker.changePct];
 
       this.updateMovement();
