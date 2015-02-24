@@ -5,9 +5,9 @@ require.config({
     }
   },
   paths: {
-    amplify: '../bower_components/amplify/lib/amplify.core',
-    underscore: '../bower_components/underscore/underscore',
-    superagent: '../bower_components/superagent/superagent'
+    amplify: 'app/bower_components/amplify/lib/amplify.core',
+    underscore: 'app/bower_components/underscore/underscore',
+    superagent: 'app/bower_components/superagent/superagent'
   },
   packages: [
  

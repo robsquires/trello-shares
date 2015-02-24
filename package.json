@@ -26,12 +26,14 @@
     "grunt-chrome-manifest": "~0.2.0",
     "grunt-contrib-compress": "~0.9.1",
     "grunt-contrib-requirejs": "^0.4.4",
-    "robohydra": "^0.5.2"
+    "robohydra": "^0.5.2",
+    "grunt-template-jasmine-requirejs": "^0.2.0",
+    "grunt-contrib-jasmine": "^0.8.2"
   },
   "engines": {
     "node": ">=0.8.0"
   },
-  "scripts" : {
+  "scripts": {
     "robohydra": "robohydra robohydra.conf"
   }
 }

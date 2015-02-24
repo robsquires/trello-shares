@@ -126,6 +126,7 @@ module.exports = function (grunt) {
         'test/spec/{,*/}*.js'
       ]
     },
+
     mocha: {
       all: {
         options: {
@@ -135,6 +136,21 @@ module.exports = function (grunt) {
       }
     },
 
+    jasmine: {
+      taskName: {
+        src: '<%= config.app %>/scripts/model/*.js',
+        options: {
+          specs: 'test/spec/*/*Spec.js',
+          helpers: 'spec/*Helper.js',
+          host: 'http://127.0.0.1:9000/',
+          keepRunner: true,
+          template: require('grunt-template-jasmine-requirejs'),
+          templateOptions: {
+            requireConfigFile: '<%= config.app %>/contentscript_config.js'
+          }
+        }
+      }
+    },
      // Compiles Sass to CSS and generates necessary files if requested
     compass: {
       options: {
@@ -364,7 +380,7 @@ module.exports = function (grunt) {
 
   grunt.registerTask('test', [
     'connect:test',
-    'mocha'
+    'jasmine'
   ]);
 
   grunt.registerTask('build', [
