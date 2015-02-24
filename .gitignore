@@ -11,3 +11,5 @@ package
 
 app/styles/main.css
 app/scripts/contentscript.js
+
+.grunt/
