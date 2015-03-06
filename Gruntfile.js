@@ -137,7 +137,7 @@ module.exports = function (grunt) {
     },
 
     jasmine: {
-      taskName: {
+      test: {
         src: '<%= config.app %>/scripts/model/*.js',
         options: {
           specs: 'test/spec/*/*Spec.js',
@@ -380,7 +380,7 @@ module.exports = function (grunt) {
 
   grunt.registerTask('test', [
     'connect:test',
-    'jasmine'
+    'jasmine:test'
   ]);
 
   grunt.registerTask('build', [
