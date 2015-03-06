@@ -23,7 +23,7 @@ function(
 
     updateMovement: function() {
 
-      if(this.ticker.movement() === -1) {
+      if(this.ticker.movement === -1) {
         this.badge.classList.add('badge-price--down');
       } else {
         this.badge.classList.add('badge-price--up');

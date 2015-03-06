@@ -60,7 +60,7 @@ require([
 
     var initialQuotes = {};
 
-    processResults = function(results){
+    function processResults(results){
 
       for (var symbol in symbolIdx) {
         var cardIds = symbolIdx[symbol];
@@ -91,7 +91,7 @@ require([
     });
 
     var symbolIdx  = {};
-    processCard = function(cardId, name){
+    function processCard(cardId, name){
       var symbol = nameParser.symbol(name);
 
       if (!symbolIdx[symbol]) {
@@ -149,12 +149,12 @@ require([
         ticker.setQuantity(quantity);
         ticker.setPrice(price);
 
-        cards[ticker.id] = card;
+        cards[id] = card;
         pubsub.publish('ticker:quoted', ticker);
       } else {
-        ticker = new Ticker(id, symbol, price, quantity);
-        tickers[ticker.id] = ticker;
-        cards[ticker.id] = card;
+        ticker = new Ticker(symbol, price, quantity);
+        tickers[id] = ticker;
+        cards[id] = card;
       }
 
       if (initialQuotes[symbol]) {

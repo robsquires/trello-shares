@@ -3,9 +3,8 @@ define([
 ) {
     'use strict';
 
-    var Ticker = function(id, symbol, price, quantity) {
+    var Ticker = function(symbol, price, quantity) {
 
-      this.id = id;
       this.symbol = symbol;
 
       this.setPrice(price);
@@ -34,9 +33,37 @@ define([
         }
       });
 
-      Object.defineProperty(this, 'investment', {
+      Object.defineProperty(this, 'initialInvestment', {
+        get: function() {
+          return this.quantity * this.price;
+        }
+      });
+
+      Object.defineProperty(this, 'investmentValue', {
         get: function() {
           return this.quantity * this.offer;
+        }
+      });
+
+      Object.defineProperty(this, 'change', {
+        get: function() {
+          return this.owns
+            ? parseFloat(this.bid - this.price)
+            : this.quoteChange;
+        }
+      });
+      
+      Object.defineProperty(this, 'changePct', {
+        get: function() {
+          return this.owns
+            ? (this.change / this.price * 100).toFixed(2).toString() + '%'
+            : this.quoteChangePct;
+        }
+      });
+
+      Object.defineProperty(this, 'movement', {
+        get: function() {
+          return this.change < 0 ? -1 : 1;
         }
       });
     };
@@ -51,34 +78,16 @@ define([
         this.offer = parseFloat(quote.AskRealtime);
         this.quoteChange = parseFloat(quote.ChangeRealtime);
         this.quoteChangePct = quote.ChangeinPercent;
-
-        refresh.call(this);
-      },
-
-      movement: function() {
-        return this.change < 0 ? -1 : 1;
       },
 
       setQuantity: function(quantity) {
-        this.quantity = quantity !== null ? parseInt(quantity, 10) : null;
-        refresh.call(this);
+        this.quantity = quantity !== undefined ? parseInt(quantity, 10) : null;
       },
 
       setPrice: function(price) {
         this.price = price !== null ? parseFloat(price) : null;
-        refresh.call(this);
       }
     };
 
-
-    var refresh = function() {
-      if (this.owns) {
-        this.change = parseFloat(this.offer - this.price);
-        this.changePct = (this.change / this.price * 100).toFixed(2).toString() + '%';
-      } else {
-        this.change = this.quoteChange;
-        this.changePct = this.quoteChangePct;
-      }
-    };
     return Ticker;
   });

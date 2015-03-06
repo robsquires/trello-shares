@@ -36,7 +36,7 @@ function(
 
       var classList = this.card.classList;
 
-      if (this.ticker.movement() === -1) {
+      if (this.ticker.movement === -1) {
         classList.add('list-card--down');
         classList.remove('list-card--up');
       } else {
