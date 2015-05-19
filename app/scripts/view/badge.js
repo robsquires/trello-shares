@@ -3,6 +3,8 @@ define([
 function(
 ) {
 
+  var states = ['gain', 'value'];
+
   var BadgeView = function(card, ticker) {
     this.setTicker(ticker);
     this.setCard(card);
@@ -16,7 +18,7 @@ function(
       this.badge = document.createElement('div');
       this.badge.addEventListener('click', function(event) {
           event.stopPropagation();
-          pubsub.publish('ui:togglePrice');
+          // pubsub.publish('ui:togglePrice');
         });
       this.badge.classList.add('badge', 'badge-price');
     },
@@ -46,8 +48,23 @@ function(
       if (!this.ticker.hasQuote) {
         return;
       }
+      this.data = {}
+      states.forEach(function(state){
 
-      var price = this.ticker.owns ? '£' + (this.ticker.investment/100).toFixed(2) : this.ticker.marketPrice;
+        var data;
+        switch(state) {
+          case 'gain':
+            data = { actual: '£' + this.ticker.change.toFixed(2), percentage: this.ticker.changePct };
+            break;
+          case 'value':
+            data = { actual: '£' + this.ticker.change.toFixed(2), percentage: this.ticker.changePct };
+            break;
+        } 
+
+        this.data[state] = data;
+      }, this);
+
+      var price = this.ticker.owns ? '£' + (this.ticker.investmentValue/100).toFixed(2) : this.ticker.marketPrice;
       var data = [price, '£' + this.ticker.change.toFixed(2), this.ticker.changePct];
 
       this.updateMovement();

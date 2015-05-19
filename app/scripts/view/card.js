@@ -7,11 +7,22 @@ function(
 
   var badgeUpdate = { bid:1, offer:1 };
 
+  /**
+   * @param Element card   the trello card to attach to
+   * @param Ticker ticker the ticker model
+   */
   var CardView = function(card, ticker) {
-    this.setTicker(ticker);
     this.card = card;
+    this.setTicker(ticker);
+
+    /**
+     * @type Element
+     */
     this.title = this.card.querySelector('.list-card-title');
 
+    /**
+     * @type BadgeView
+     */
     this.badge = new BadgeView(this.card, this.ticker);
 
     this.update();
@@ -43,6 +54,7 @@ function(
         classList.add('list-card--up');
         classList.remove('list-card--down');
       }
+
       if (goneUp === true) {
         classList.add('moved-up');
         classList.remove('moved-down');
@@ -58,7 +70,6 @@ function(
 
     updateTitle: function() {
       var span = this.title.querySelector('span');
-
       this.title.innerHTML = span.outerHTML + this.ticker.symbol;
     },
 

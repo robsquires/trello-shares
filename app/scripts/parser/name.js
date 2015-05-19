@@ -24,7 +24,7 @@ function(
     if ( bits[2] !== '' && bits[3] !== '') {
       return bits[2];
     } else {
-      return null;
+      return '';
     }
   }
 

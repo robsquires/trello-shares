@@ -51,7 +51,7 @@ require([
     
   
     trello
-    .lists('5h0P0qrs')
+    .lists('nAfUYQfQ')
     .then(function(data){
       listObserver.setNumberLists(data.length);
       }, function(reason) {
@@ -103,7 +103,7 @@ require([
     }
 
     trello
-    .cards('5h0P0qrs')
+    .cards('nAfUYQfQ')
     .then(function(cards){
       cardObserver.setNumberCards(cards.length);
 
@@ -117,31 +117,72 @@ require([
 
     });
 
+    var highestCardId = 0;
+
     pubsub.subscribe('trello:card:added', function(card) {
+    
+      var title = titleParser.fromCard(card), 
+          name = titleParser.name(title),
+          id;
+
+      try {
+        id = titleParser.id(title);
+      } catch(e) {
+        id = highestCardId + 1;
+        titleParser.updateId(title, id);
+      }
+      highestCardId = parseInt(id,10) > highestCardId ? parseInt(id,10) :  highestCardId;
+
+      var newCard = cards[id] === undefined;
       addCard(card);
-      var title = titleParser.fromCard(card);
 
-      processCard(titleParser.id(title), titleParser.name(title));
+      processCard(id, name);
 
-      tickerRepo
-        .sync()
-        .then(processResults);
+      if(newCard) {
+        tickerRepo
+          .sync()
+          .then(processResults);
+      }
     });
 
     var cards = {},
         tickers = {},
-        cardViews = {};
+        cardViews = {},
+        prices = {};
+        quantities = {};
 
     function addCard(card){
 
-      var title = titleParser.fromCard(card),
-          id = titleParser.id(title),
-          name = titleParser.name(title);
+      var title = titleParser.fromCard(card), 
+          name = titleParser.name(title),
+          id;
+      try {
+        id = titleParser.id(title);
+      } catch(e) {
+        id = highestCardId + 1;
+        titleParser.updateId(title, id);
+      }
+
+
+      highestCardId = parseInt(id,10) > highestCardId ? parseInt(id,10) :  highestCardId;
 
       var symbol = nameParser.symbol(name),
           price = nameParser.price(name),
           quantity = nameParser.quantity(name);
 
+
+      if (price !== '') {
+        prices[id] = price;
+      } else {
+
+        price = prices[id] !== undefined ? prices[id]: null;
+      }
+
+      if (quantity !== '') {
+        quantities[id] = quantity;
+      } else {
+        quantity = quantities[id] !== undefined ? quantities[id]: null;
+      }
 
       var ticker = tickers[id];
       if (ticker /*&& symbol === ticker.symbol*/) {

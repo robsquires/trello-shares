@@ -34,15 +34,12 @@ function(
           if(data.count === 0) {
             reject('Zero results returned');
           }
-          
           data.results.forEach(function(result){
 
-            if(result.AskRealtime !== null && result.BidRealtime !== null) {
               //using delete maintains the keys,
               //slicing reindexes which breaks after first time this is called
               delete symbols[results[result.Symbol]];
               results[result.Symbol] = result;
-            }
           });
 
           symbols.forEach(function(symbol){

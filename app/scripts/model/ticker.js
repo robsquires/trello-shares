@@ -19,6 +19,7 @@ define([
       this.changePct = null;
       this.quoteChange = null;
       this.quoteChangePct = null;
+      this.currency = null;
 
       Object.defineProperty(this, 'owns', {
         get: function() {
@@ -26,7 +27,6 @@ define([
         }
       });
 
-      //computed values
       Object.defineProperty(this, 'marketPrice', {
         get: function() {
           return this.owns ? this.bid : this.offer;
@@ -39,9 +39,15 @@ define([
         }
       });
 
+      Object.defineProperty(this, 'investmentChange', {
+        get: function() {
+          return this.quantity * this.change;
+        }
+      });
+
       Object.defineProperty(this, 'investmentValue', {
         get: function() {
-          return this.quantity * this.offer;
+          return this.initialInvestment + this.investmentChange;
         }
       });
 
@@ -74,14 +80,15 @@ define([
 
         this.hasQuote = true;
 
-        this.bid = parseFloat(quote.BidRealtime);
-        this.offer = parseFloat(quote.AskRealtime);
-        this.quoteChange = parseFloat(quote.ChangeRealtime);
-        this.quoteChangePct = quote.ChangeinPercent;
+        this.bid = parseFloat(quote.BidRealtime !== null ? quote.BidRealtime : quote.LastTradePriceOnly);
+        this.offer = parseFloat(quote.AskRealtime !== null ? quote.AskRealtime : quote.LastTradePriceOnly);
+        this.quoteChange = parseFloat(quote.ChangeRealtime !== null ? quote.ChangeRealtime : quote.Change);
+        this.quoteChangePct = quote.ChangePercentRealtime !== null ? quote.ChangePercentRealtime : quote.ChangeinPercent;
+        this.currency = quote.Currency;
       },
 
       setQuantity: function(quantity) {
-        this.quantity = quantity !== undefined ? parseInt(quantity, 10) : null;
+        this.quantity = quantity !== null ? parseInt(quantity, 10) : null;
       },
 
       setPrice: function(price) {

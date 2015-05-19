@@ -33,20 +33,24 @@ function(
 
                 if (node.matches(selector)) {
                   foundBoard(node);
+                } else if (node.querySelector(selector)) {
+                  foundBoard(node.querySelector(selector));
                 }
                 
               });
             });
           });
+          observer.observe(content, { childList: true });
         }
       });
 
-      setTimeout(checkBoard, 1000);
+      setTimeout(checkBoard, 3000);
 
       return promise;
     }
 
     function foundBoard(board) {
+      found = true;
       resolve(board);
     }
 

@@ -10,7 +10,7 @@ function(
 
   var lists = [],
       initialCount,
-      selector = '.list:not(.add-list)',
+      selector = '.list:not(.mod-add)',
       resolve, reject;
 
   var observer = new MutationObserver(function(mutations) {
